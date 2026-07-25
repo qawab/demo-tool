@@ -111,7 +111,7 @@ end
 local drawing_window = false
 local is_playing_demo = engine.IsPlayingDemo()
 
-local script_url = "https://raw.githubusercontent.com/copykot/demo-tool/refs/heads/main/dem.lua"
+local script_url = "https://raw.githubusercontent.com/qawab/demo-tool/refs/heads/main/dem.lua"
 local function GetCurrentFile()
 	local info = debug.getinfo(2, "S")
 	if not info or info.source:sub(1, 1) ~= "@" then return "" end
@@ -440,7 +440,7 @@ local function ToggleDemoGUI()
 		open_link:SetPos(0, yoffset)
 		open_link:SetSize(ScaleSize(75), ScaleSize(22))
 		open_link.DoClick = function()
-			gui.OpenURL("https://github.com/copykot/demo-tool/?tab=readme-ov-file#installation")
+			gui.OpenURL("https://github.com/qawab/demo-tool/?tab=readme-ov-file#installation")
 		end
 
 	end
