@@ -46,6 +46,7 @@ local vars = {
 	ignorez = CreateClientConVar("_demo_ignorez", "0", true, false),
 	eye_trace = CreateClientConVar("_demo_eye_trace", "0", true, false),
 	show_updates = CreateClientConVar("_demo_updates", "1", true, false),
+	fast_forward_mult = CreateClientConVar("_demo_ff_mult", "2", true, false),
 
 	-- Keybinds
 	fast_forward = CreateClientConVar("_demo_ff_key", "0", true, false),
@@ -285,7 +286,9 @@ local _gui_data = {
 	{ type = "checkbox", label = "ESP outline", var = vars.outline },
 	{ type = "checkbox", label = "Ignore Z", var = vars.ignorez },
 	{ type = "slider",	 label = "ESP range", var = vars.range },
+	{ type = "checkbox", label = "Show eye trace", var = vars.eye_trace },
 	{ type = "slider",	 label = "Thirdperson distance", var = vars.fov, min = 10, max = 150 },
+	{ type = "slider",	 label = "Fast forward multiplier", var = vars.fast_forward_mult, min = 1.1, max = 75 },
 	{ type = "checkbox", label = "Show Steam name", var = vars.show_name },
 	{ type = "checkbox", label = "Show RP name", var = vars.show_rpname },
 	{ type = "checkbox", label = "Show job rank", var = vars.show_jobs },
@@ -295,7 +298,6 @@ local _gui_data = {
 	{ type = "checkbox", label = "Show weapon", var = vars.show_weapon },
 	{ type = "checkbox", label = "Show status", var = vars.show_status },
 	{ type = "checkbox", label = "Show warrant", var = vars.show_warrant },
-	{ type = "checkbox", label = "Show eye trace", var = vars.eye_trace },
 	{ type = "checkbox", label = "Draw time", var = vars.time },
 	{ type = "checkbox", label = "Replicate scope zoom when spectating", var = vars.zoom },
 	{ type = "checkbox", label = "Voice proximity list", var = vars.voice_list },
@@ -527,10 +529,15 @@ local function OpenModal(prompt, action)
 end
 
 local base_timescale = 1
+local current_timescale = base_timescale
 local function SetTimescale(speed)
-	base_timescale = speed
-	RunConsoleCommand("demo_timescale", speed)
+    base_timescale = speed
+	current_timescale = speed
+
+    RunConsoleCommand("demo_timescale", speed)
 end
+
+SetTimescale(1)
 
 local function InitDemoPanel(_, bind, pressed, code)
 	if not pressed or code ~= MOUSE_RIGHT then return end
@@ -948,7 +955,8 @@ end
 
 CreateKeybind("Fast-forward", vars.fast_forward, function(key_down, last_key_down)
 	if key_down ~= last_key_down then
-		RunConsoleCommand("demo_timescale", base_timescale * (key_down and 2 or 1))
+		current_timescale = base_timescale * (key_down and vars.fast_forward_mult:GetInt() or 1)
+		RunConsoleCommand("demo_timescale", current_timescale)
 	end
 end)
 
@@ -999,8 +1007,14 @@ local function HUDPaintESP()
 
 	if is_playing_demo and vars.time:GetBool() then
 		local time = string.ToMinutesSeconds(engine.GetDemoPlaybackTick() * engine.TickInterval())
-		local total = string.ToMinutesSeconds(engine.GetDemoPlaybackTotalTicks() * engine.TickInterval())
-		DrawText("demo_info_big", scrw * .92, scrw * .05, time .. " / " .. total, color_white)
+        local total = string.ToMinutesSeconds(engine.GetDemoPlaybackTotalTicks() * engine.TickInterval())
+
+        local str = time .. " / " .. total
+		if current_timescale != 1 then
+			str = str .. " (" .. tostring(current_timescale) .. "x)"
+		end
+
+		DrawText("demo_info_big", scrw * 0.92, scrw * .05, str, color_white)
 	end
 
 	if vars.crosshair:GetBool() then
