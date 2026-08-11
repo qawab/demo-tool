@@ -1,4 +1,7 @@
 ### Changes for v1.6.0:
+- Added a fast forward multiplier.
+
+### Changes for v1.6.0:
 - Added ignore Z (often referred to as chams). Do note, this feature is performance heavy as it has to render every player an additional time.
 - Added eye trace. Do note, this feature is also not performance friendly.
 - Made thirdperson whilst in vehicles properly orient around the vehicle, rather than the player.
