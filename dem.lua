@@ -732,7 +732,7 @@ end
 local function DrawClientESP(ply)
 	local font = "demo_mtext"
 	local color = Color(200, 200, 200)
-	local team_color = ply:GetTeamColor()
+	local team_color = ply:GetTeamColor() --team.GetColor(ply:Team())
 	local c = ply:GetPos():ToScreen()
 	local world_pos = ply:GetPos()
 
