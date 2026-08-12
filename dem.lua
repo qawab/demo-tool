@@ -33,6 +33,8 @@ local vars = {
 
 	outline = CreateClientConVar("_demo_esp_draw_outline", "1", true, false),
 	range = CreateClientConVar("_demo_esp_range", "2000", true, false),
+	distance_fade = CreateClientConVar("_demo_esp_distance_fade", "0", true, false),
+	fade_start = CreateClientConVar("_demo_esp_fade_start", "50", true, false), -- % of range where fading begins
 
 	fov = CreateClientConVar("_demo_fov", "100", true, false),
 	logs = CreateClientConVar("_demo_kill_logs", "1", true, false),
@@ -287,6 +289,8 @@ local _gui_data = {
 	{ type = "checkbox", label = "Ignore Z", var = vars.ignorez },
 	{ type = "slider",	 label = "ESP range", var = vars.range },
 	{ type = "checkbox", label = "Show eye trace", var = vars.eye_trace },
+	{ type = "checkbox", label = "Text fading", var = vars.distance_fade },
+	{ type = "slider",	 label = "Text fade start", var = vars.fade_start, min = 0, max = 100 },
 	{ type = "slider",	 label = "Thirdperson distance", var = vars.fov, min = 10, max = 150 },
 	{ type = "slider",	 label = "Fast forward multiplier", var = vars.fast_forward_mult, min = 1.1, max = 75 },
 	{ type = "checkbox", label = "Show Steam name", var = vars.show_name },
@@ -707,11 +711,30 @@ local function AddLine(lines, text, color1, color2, align)
 	table.insert(lines, {text, color1, color2, align})
 end
 
+local function GetFadeAlpha(dist)
+	if not vars.distance_fade:GetBool() then return 255 end
+
+	local range = vars.range:GetInt()
+	local near = range * (vars.fade_start:GetInt() / 100)
+
+	if dist <= near or near >= range then return 255 end
+	if dist >= range then return 0 end
+
+	local frac = 1 - ((dist - near) / (range - near))
+	return math.Clamp(255 * frac, 0, 255)
+end
+
+local function FadeColor(color, alpha)
+	if alpha >= 255 or not color then return color end
+	return Color(color.r, color.g, color.b, alpha)
+end
+
 local function DrawClientESP(ply)
 	local font = "demo_mtext"
 	local color = Color(200, 200, 200)
-	local team_color = ply:GetTeamColor() --team.GetColor(ply:Team())
+	local team_color = ply:GetTeamColor()
 	local c = ply:GetPos():ToScreen()
+	local world_pos = ply:GetPos()
 
 	local lines = {}
 	local base = ScaleSize(20)
@@ -723,10 +746,13 @@ local function DrawClientESP(ply)
 
 		local ragdoll = ply:GetNWEntity("ragdoll", nil)
 		if IsValid(ragdoll) then
-			c = ragdoll:WorldSpaceCenter():ToScreen()
+			world_pos = ragdoll:WorldSpaceCenter()
+			c = world_pos:ToScreen()
 			yoffset = -base
 		end
 	end
+
+	local fade_alpha = GetFadeAlpha(GetEyePos():Distance(world_pos))
 
 	local job = ply:GetShortJobTitle()
 	if vars.show_rpname:GetBool() then
@@ -879,7 +905,9 @@ local function DrawClientESP(ply)
 	end
 
 	for _, line in ipairs(lines) do
-		DrawText(font, c.x, c.y + yoffset, line[1], line[2], line[4], line[3])
+		local col1 = FadeColor(line[2], fade_alpha)
+		local col2 = FadeColor(line[3], fade_alpha)
+		DrawText(font, c.x, c.y + yoffset, line[1], col1, line[4], col2)
 		yoffset = yoffset + base
 	end
 end
@@ -888,8 +916,10 @@ local function DrawVehicleESP(ent, hovered)
 	if not vars.vehicles:GetBool() then return end
 
 	local font = "demo_mtext"
-	local c = ent:WorldSpaceCenter():ToScreen()
-	local color = color_white
+	local world_pos = ent:WorldSpaceCenter()
+	local c = world_pos:ToScreen()
+	local fade_alpha = GetFadeAlpha(GetEyePos():Distance(world_pos))
+	local color = FadeColor(color_white, fade_alpha)
 
 	local base = ScaleSize(20)
 	local yoffset = -base
