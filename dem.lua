@@ -711,48 +711,37 @@ local function AddLine(lines, text, color1, color2, align)
 	table.insert(lines, {text, color1, color2, align})
 end
 
-local function GetFadeAlpha(dist)
-	if not vars.distance_fade:GetBool() then return 255 end
+local function Fade(color, dist)
+	if not color or not vars.distance_fade:GetBool() then return color end
 
-	local range = vars.range:GetInt()
-	local near = range * (vars.fade_start:GetInt() / 100)
+	local near = vars.range:GetInt() * vars.fade_start:GetInt() / 100
+	local a = 255 * math.Clamp(1 - (dist - near) / (vars.range:GetInt() - near), 0, 1)
 
-	if dist <= near or near >= range then return 255 end
-	if dist >= range then return 0 end
-
-	local frac = 1 - ((dist - near) / (range - near))
-	return math.Clamp(255 * frac, 0, 255)
-end
-
-local function FadeColor(color, alpha)
-	if alpha >= 255 or not color then return color end
-	return Color(color.r, color.g, color.b, alpha)
+	return Color(color.r, color.g, color.b, a)
 end
 
 local function DrawClientESP(ply)
 	local font = "demo_mtext"
 	local color = Color(200, 200, 200)
-	local team_color = ply:GetTeamColor() --team.GetColor(ply:Team())
+	local team_color = ply:GetTeamColor()
 	local c = ply:GetPos():ToScreen()
-	local world_pos = ply:GetPos()
 
 	local lines = {}
 	local base = ScaleSize(20)
 	local yoffset = 0
 
 	local alive = player_Alive(ply)
+	local dist = GetEyePos():Distance(ply:GetPos())
 	if not alive then
 		if vars.alive_only:GetBool() and not ply:CanBeRevived() then return end
 
 		local ragdoll = ply:GetNWEntity("ragdoll", nil)
 		if IsValid(ragdoll) then
-			world_pos = ragdoll:WorldSpaceCenter()
-			c = world_pos:ToScreen()
+			c = ragdoll:WorldSpaceCenter():ToScreen()
+			dist = GetEyePos():Distance(ragdoll:WorldSpaceCenter())
 			yoffset = -base
 		end
 	end
-
-	local fade_alpha = GetFadeAlpha(GetEyePos():Distance(world_pos))
 
 	local job = ply:GetShortJobTitle()
 	if vars.show_rpname:GetBool() then
@@ -905,9 +894,7 @@ local function DrawClientESP(ply)
 	end
 
 	for _, line in ipairs(lines) do
-		local col1 = FadeColor(line[2], fade_alpha)
-		local col2 = FadeColor(line[3], fade_alpha)
-		DrawText(font, c.x, c.y + yoffset, line[1], col1, line[4], col2)
+		DrawText(font, c.x, c.y + yoffset, line[1], Fade(line[2], dist), line[4], Fade(line[3], dist))
 		yoffset = yoffset + base
 	end
 end
@@ -918,8 +905,7 @@ local function DrawVehicleESP(ent, hovered)
 	local font = "demo_mtext"
 	local world_pos = ent:WorldSpaceCenter()
 	local c = world_pos:ToScreen()
-	local fade_alpha = GetFadeAlpha(GetEyePos():Distance(world_pos))
-	local color = FadeColor(color_white, fade_alpha)
+	local color = Fade(color_white, GetEyePos():Distance(world_pos))
 
 	local base = ScaleSize(20)
 	local yoffset = -base
