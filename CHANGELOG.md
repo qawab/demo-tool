@@ -1,4 +1,4 @@
-### Changes for v1.6.0:
+### Changes for v1.7.0:
 - Added a fast forward multiplier.
 
 ### Changes for v1.6.0:
