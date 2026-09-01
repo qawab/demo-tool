@@ -1,4 +1,12 @@
-### Changes for v1.6.0:
+### Changes for v1.8.0:
+- Added an option to display /org messages.
+- Added a small window on the left side that displays information about the current player / spectatee
+- Proximity list now shows:
+  - 1) When players are speaking
+  - 2) TeamSpeak members (shown as different colour)
+- Added a small fade-in and fade-out animation when players go in or out of range
+
+### Changes for v1.7.0:
 - Added a fast forward multiplier.
 
 ### Changes for v1.6.0:

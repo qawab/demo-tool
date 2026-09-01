@@ -30,6 +30,8 @@ local vars = {
 	show_status = CreateClientConVar("_demo_esp_show_status", "1", true, false),
 	show_jobs = CreateClientConVar("_demo_esp_show_jobs", "1", true, false),
 	show_nlr = CreateClientConVar("_demo_esp_show_nlr", "0", true, false),
+	show_org_chat = CreateClientConVar("_demo_org_chat", "1", true, false),
+	show_info_card = CreateClientConVar("_demo_info_card", "1", true, false),
 
 	outline = CreateClientConVar("_demo_esp_draw_outline", "1", true, false),
 	range = CreateClientConVar("_demo_esp_range", "2000", true, false),
@@ -285,8 +287,10 @@ local _gui_data = {
 	{ type = "checkbox", label = "ESP on hover", var = vars.hover },
 	{ type = "checkbox", label = "ESP outline", var = vars.outline },
 	{ type = "checkbox", label = "Ignore Z", var = vars.ignorez },
-	{ type = "slider",	 label = "ESP range", var = vars.range },
 	{ type = "checkbox", label = "Show eye trace", var = vars.eye_trace },
+	{ type = "checkbox", label = "Show org chat", var = vars.show_org_chat },
+	{ type = "checkbox", label = "Show player info", var = vars.show_info_card },
+	{ type = "slider",	 label = "ESP range", var = vars.range },
 	{ type = "slider",	 label = "Thirdperson distance", var = vars.fov, min = 10, max = 150 },
 	{ type = "slider",	 label = "Fast forward multiplier", var = vars.fast_forward_mult, min = 1.1, max = 75 },
 	{ type = "checkbox", label = "Show Steam name", var = vars.show_name },
@@ -681,12 +685,13 @@ surface.CreateFont("demo_info_big", {
 })
 
 
-local function DrawText(font, x, y, text, color, align, outline_color)
+local function DrawText(font, x, y, text, color, align, outline_color, align_y)
 	outline_color = outline_color or Color(0, 0, 0, 255)
 	outline_color.a = color.a
 
 	align = align or TEXT_ALIGN_CENTER
-	return draw.SimpleTextOutlined(text, font, x, y, color, align, TEXT_ALIGN_CENTER, 1, outline_color)
+	align_y = align_y or TEXT_ALIGN_CENTER
+	return draw.SimpleTextOutlined(text, font, x, y, color, align, align_y, 1, outline_color)
 end
 
 player_Alive = player_Alive or PLAYER.Alive
@@ -707,28 +712,20 @@ local function AddLine(lines, text, color1, color2, align)
 	table.insert(lines, {text, color1, color2, align})
 end
 
-local function DrawClientESP(ply)
-	local font = "demo_mtext"
+local function GetLines(ply)
 	local color = Color(200, 200, 200)
-	local team_color = ply:GetTeamColor() --team.GetColor(ply:Team())
-	local c = ply:GetPos():ToScreen()
-
+	local team_color = ply:GetTeamColor()
 	local lines = {}
-	local base = ScaleSize(20)
-	local yoffset = 0
 
 	local alive = player_Alive(ply)
 	if not alive then
-		if vars.alive_only:GetBool() and not ply:CanBeRevived() then return end
-
-		local ragdoll = ply:GetNWEntity("ragdoll", nil)
-		if IsValid(ragdoll) then
-			c = ragdoll:WorldSpaceCenter():ToScreen()
-			yoffset = -base
+		if vars.alive_only:GetBool() and not ply:CanBeRevived() then
+			return
 		end
 	end
 
 	local job = ply:GetShortJobTitle()
+
 	if vars.show_rpname:GetBool() then
 		local color1 = color_white
 		local color2 = team_color
@@ -771,15 +768,15 @@ local function DrawClientESP(ply)
 
 	if vars.show_health:GetBool() then
 		local str = ""
-
 		local col = color
+
 		if alive then
 			if ply:Health() > 0 and ply:Health() ~= ply:GetMaxHealth() then
 				str = ply:Health() .. " HP"
 			end
 
 			if ply:Armor() > 0 and ply:Armor() ~= ply:GetMaxArmor() then
-				str = str ..  " " .. ply:Armor() .. " AP"
+				str = str .. " " .. ply:Armor() .. " AP"
 			end
 		else
 			if ply:CanBeRevived() then
@@ -801,6 +798,7 @@ local function DrawClientESP(ply)
 		local splint = ply:GetNWBool("hasSplint")
 
 		local text = {}
+
 		if (crippled or splint) and alive then
 			table.insert(text, crippled and "crippled" or "splinted")
 		end
@@ -826,7 +824,7 @@ local function DrawClientESP(ply)
 
 		if #text > 0 then
 			local str = table.concat(text, ", ")
-			str = str:sub(1, 1):upper() .. str:sub(2) -- Make the first letter uppercase
+			str = str:sub(1, 1):upper() .. str:sub(2)
 
 			AddLine(lines, str, Color(255, 50, 50, 255))
 		end
@@ -836,8 +834,10 @@ local function DrawClientESP(ply)
 	local warranted = ply:IsWarranted()
 	local bolo = ply:HasBolo()
 	local robber = ply:GetNWBool("robber", false)
+
 	if vars.show_warrant:GetBool() and (search or warranted or bolo or robber) then
 		local str = robber and "Robber" or "Warranted"
+
 		if search or bolo then
 			str = search and "Search warrant" or "BOLO"
 		end
@@ -851,10 +851,11 @@ local function DrawClientESP(ply)
 	end
 
 	if vars.show_weapon:GetBool() then
-		local str = nil
+		local str
 
 		local swep = ply:GetActiveWeapon()
 		local restrained = ply:GetNWInt("restrained", 0)
+
 		if restrained == 1 then
 			str = "Cuffed"
 		elseif restrained == 2 then
@@ -870,6 +871,7 @@ local function DrawClientESP(ply)
 
 	if vars.show_nlr:GetBool() then
 		local time = ply:GetNWFloat("NLRTime", 0)
+
 		if time > CurTime() and ply:IsEntityInNLRZone(ply) then
 			-- No idea how to get the NLR zone's name
 			local str = "NLR: " .. string.ToMinutesSeconds(time - CurTime())
@@ -878,8 +880,46 @@ local function DrawClientESP(ply)
 		end
 	end
 
+	return lines
+end
+
+local FADE_SPEED = 1 / 0.3
+local function DrawClientESP(ply, state)
+	ply.fade_time = ply.fade_time or 0
+	if state and ply.fade_time < 1 then
+		ply.fade_time = math.Clamp(ply.fade_time + FADE_SPEED * RealFrameTime(), 0, 1)
+	elseif not state and ply.fade_time > 0 then
+		ply.fade_time = math.Clamp(ply.fade_time - FADE_SPEED * RealFrameTime(), 0, 1)
+	end
+
+	if ply.fade_time == 0 then
+		return
+	end
+
+	local font = "demo_mtext"
+	local c = ply:GetPos():ToScreen()
+	local base = ScaleSize(20)
+	local yoffset = 0
+
+	local alive = player_Alive(ply)
+
+	if not alive then
+		local ragdoll = ply:GetNWEntity("ragdoll", nil)
+
+		if IsValid(ragdoll) then
+			c = ragdoll:WorldSpaceCenter():ToScreen()
+			yoffset = -base
+		end
+	end
+
+	local lines = GetLines(ply)
+	if not lines then return end
+
 	for _, line in ipairs(lines) do
-		DrawText(font, c.x, c.y + yoffset, line[1], line[2], line[4], line[3])
+		local color1 = ColorAlpha(line[2], line[2].a * ply.fade_time)
+		local color2 = line[3] and ColorAlpha(line[3], line[3].a * ply.fade_time) or nil
+
+		DrawText(font, c.x, c.y + yoffset, line[1], color1, line[4], color2)
 		yoffset = yoffset + base
 	end
 end
@@ -912,6 +952,48 @@ local function DrawVehicleESP(ent, hovered)
 
 		DrawText(font, c.x, c.y + yoffset, tostring(speed) .. " MPH", color)
 		yoffset = yoffset + base
+	end
+end
+
+-- I hate UIs
+local function DrawInfoCard(ply)
+	if not vars.show_info_card:GetBool() then return end
+
+	local lines = GetLines(ply)
+	if not lines then return end
+
+	local font = "demo_text"
+	local x = 10
+	local y = ScrH() * .5
+	local base = draw.GetFontHeight(font)
+	local padding = ScaleSize(10)
+
+	local width = ScaleSize(300)
+	local height = padding * 2 + base * #lines
+
+	surface.SetFont(font)
+	for _, line in ipairs(lines) do
+		local w = surface.GetTextSize(line[1])
+		if w > width then
+			width = w + (padding * 2)
+		end
+	end
+
+	draw.RoundedBox(6, x, y - padding, width, height, Color(20, 20, 20, 220))
+	draw.RoundedBoxEx(6, x, y - padding, width, ScaleSize(5), ply:GetTeamColor(), true, true, false, false)
+
+	surface.SetDrawColor(255, 255, 255, 20)
+	surface.DrawOutlinedRect(x, y - padding, width, height, 1)
+
+	for i, line in ipairs(lines) do
+		local row = y + (i - 1) * base + base * 0.1
+
+		if i > 1 then
+			surface.SetDrawColor(255, 255, 255, 10)
+			surface.DrawRect(x + padding, row, width - padding * 2, 1)
+		end
+
+		DrawText(font, x + padding, row, line[1], line[2], TEXT_ALIGN_LEFT, line[3], TEXT_ALIGN_TOP)
 	end
 end
 
@@ -989,6 +1071,15 @@ local function UpdateKeybinds()
 
 	for _, t in ipairs(keybinds) do
 		t.func()
+	end
+end
+
+local function GetTargetVoiceChannel()
+	local target = GetTarget()
+	for _, c in pairs(VoiceChannels) do
+		if c:HasPlayer(target) then
+			return c
+		end
 	end
 end
 
@@ -1141,6 +1232,8 @@ local function HUDPaintESP()
 	end
 
 	if vars.voice_list:GetBool() then
+		local listeners = {}
+
 		local x = scrw * .99
 		local y = scrh * .35
 
@@ -1148,12 +1241,41 @@ local function HUDPaintESP()
 		local mode = target:GetNWInt("TalkMode", 1)
 		local base = ScaleSize(30)
 
-		DrawText("demo_info_big", x, y - base, string.format("Proximity list%s", mode == 2 and " [whisper]" or ""), color_white, TEXT_ALIGN_RIGHT)
+		local channel = GetTargetVoiceChannel()
+		if channel then
+			for index, state in pairs(channel.Players) do
+				if state ~= true or index == target:EntIndex() then continue end
+
+				local ply = Entity(index)
+				if not IsValid(ply) then continue end
+				local color = Color(153, 204, 255, 255)
+
+				-- muted/deafened
+				if channel.MicrophoneSettings[index] == 1 or channel.SoundSettings[index] == 1 then
+					color = Color(175, 0, 0, 255)
+				end
+
+				listeners[index] = { ply, color }
+			end
+		end
 
 		for _, ply in player.Iterator() do
 			if not ply:Alive() or ply == target or not target:IsInChatRange(ply, mode == 2 and 3 or 1) then continue end
 
-			DrawText("demo_info_big", x, y, ply:Nick(), color_white, TEXT_ALIGN_RIGHT)
+			if listeners[ply:EntIndex()] then continue end
+
+			listeners[ply:EntIndex()] = { ply, color_white }
+		end
+
+		DrawText("demo_info_big", x, y - base, string.format("Proximity list%s", mode == 2 and " [whisper]" or ""), color_white, TEXT_ALIGN_RIGHT)
+
+		for _, t in pairs(listeners) do
+			if not t or not IsValid(t[1]) then continue end
+
+			local color = t[2]
+			if not t[1].IsTalking then color.a = 125 end
+
+			DrawText("demo_info_big", x, y, t[1]:Nick(), color, TEXT_ALIGN_RIGHT)
 			y = y + base
 		end
 	end
@@ -1164,15 +1286,21 @@ local function HUDPaintESP()
 
 		for _, ent in ents.Iterator() do
 			local ply = ent
-			if ent:IsPlayer() and not ply:IsDormant() and (vars.noclip or vars.thirdperson or ply ~= target) and GetEyePos():DistToSqr(ply:GetPos()) <= range then
-				DrawClientESP(ply)
+			if ent:IsPlayer() then
+				local state = not ply:IsDormant() and GetEyePos():DistToSqr(ply:GetPos()) <= range
+
+				if vars.noclip or vars.thirdperson or ply ~= target then
+					DrawClientESP(ply, state)
+				elseif state then
+					DrawInfoCard(ply)
+				end
 			elseif ent:IsVehicle() and not ent:IsDormant() and GetEyePos():DistToSqr(ent:GetPos()) <= range then
 				DrawVehicleESP(ent, tr.Entity == ent)
 			end
 		end
 	elseif vars.hover:GetBool() and vars.noclip then -- we only really care about hover ESP if we're in noclip
 		if IsValid(tr.Entity) and tr.Entity:IsPlayer() then
-			DrawClientESP(tr.Entity)
+			DrawClientESP(tr.Entity, true)
 		end
 	end
 end
@@ -1510,6 +1638,36 @@ function PLAYER:GetBleedingAmount()
 	return player_GetBleedingAmount(self)
 end
 
+-- hacky
+local function FakeGetOrganization(self)
+	if not vars.show_org_chat:GetBool() then
+		return nil
+	end
+
+    return {
+        GetMember = function(self, cid)
+            return {
+                Rank = {
+                    Name = "noob"
+                }
+            }
+        end,
+
+        Name = "noobs",
+        OwnerID = -1
+    }
+end
+
+original_perp_chat = original_perp_chat or net.Receivers["perp_chat"]
+net.Receive("perp_chat", function(len)
+	local GetOrganization = PLAYER.GetOrganization
+	PLAYER.GetOrganization = FakeGetOrganization
+
+	original_perp_chat(len)
+
+	PLAYER.GetOrganization = GetOrganization
+end)
+
 if is_playing_demo then
 	RunConsoleCommand("demo_pause")
 end
@@ -1544,3 +1702,4 @@ local http_table = {
 }
 
 HTTP(http_table)
+
