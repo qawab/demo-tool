@@ -4,7 +4,7 @@
 - Proximity list now shows:
   - 1) When players are speaking
   - 2) TeamSpeak members (shown as different colour)
-- Added a small fade-in and fade-out animation when players go in or out of range
+- Added a short fade-in and fade-out animation that plays when players go in or out of range
 
 ### Changes for v1.7.0:
 - Added a fast forward multiplier.
